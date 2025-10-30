@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getAllCars } from "../api/cars";
 import { motion } from "framer-motion";
 import { Car, Filter, MapPin, Star, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,81 +9,18 @@ import { Navbar } from "@/components/ui/navbar";
 
 const CarsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("rent");
-  const [filters, setFilters] = useState({
-    category: "all",
-    location: "all"
-  });
+  const [filters, setFilters] = useState({ category: "all", location: "all" });
+  const [cars, setCars] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const cars = [
-    {
-      id: 1,
-      name: "BMW X5",
-      category: "luxury",
-      type: "SUV",
-      rating: 4.8,
-      reviews: 124,
-      image: "/placeholder.svg",
-      features: ["Automatic", "Petrol", "5 Seats", "GPS"],
-      location: "Mumbai",
-      availability: "Available",
-      owner: "Premium Motors",
-      year: 2023,
-      kmDriven: 15000,
-      forSale: true,
-      forRent: true
-    },
-    {
-      id: 2,
-      name: "Honda City",
-      category: "sedan",
-      type: "Sedan",
-      rating: 4.6,
-      reviews: 89,
-      image: "/placeholder.svg",
-      features: ["Manual", "Petrol", "5 Seats", "AC"],
-      location: "Delhi",
-      availability: "Available",
-      owner: "City Rentals",
-      year: 2022,
-      kmDriven: 25000,
-      forSale: true,
-      forRent: true
-    },
-    {
-      id: 3,
-      name: "Maruti Swift",
-      category: "compact",
-      type: "Hatchback",
-      rating: 4.4,
-      reviews: 156,
-      image: "/placeholder.svg",
-      features: ["Manual", "Petrol", "4 Seats", "AC"],
-      location: "Bangalore",
-      availability: "Available",
-      owner: "Swift Drive",
-      year: 2021,
-      kmDriven: 35000,
-      forSale: true,
-      forRent: true
-    },
-    {
-      id: 4,
-      name: "Mahindra Thar",
-      category: "adventure",
-      type: "SUV",
-      rating: 4.7,
-      reviews: 78,
-      image: "/placeholder.svg",
-      features: ["Manual", "Diesel", "4 Seats", "4WD"],
-      location: "Goa",
-      availability: "Available",
-      owner: "Adventure Rides",
-      year: 2023,
-      kmDriven: 8000,
-      forSale: true,
-      forRent: true
-    }
-  ];
+  useEffect(() => {
+    setLoading(true);
+    getAllCars()
+      .then(setCars)
+      .catch((err) => setError(err.message || "Could not load cars."))
+      .finally(() => setLoading(false));
+  }, []);
 
   const categories = [
     { id: "rent", label: "For Rent", icon: Car },
@@ -91,11 +29,12 @@ const CarsPage = () => {
   ];
 
   const filteredCars = cars.filter(car => {
-    if (selectedCategory === "rent" && !car.forRent) return false;
-    if (selectedCategory === "buy" && !car.forSale) return false;
-    if (filters.category !== "all" && car.category !== filters.category) return false;
+    // Backend does not give forSale/forRent/category/filter. Extend this with real data if needed.
     return true;
   });
+
+  if (loading) return <div className="p-8 text-center">Loading cars...</div>;
+  if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -152,7 +91,7 @@ const CarsPage = () => {
         </div>
       </motion.section>
 
-      {/* Filters */}
+      {/* Filters - keep/skip logic since cars API doesn't support advanced filter */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -226,12 +165,12 @@ const CarsPage = () => {
                   <Card className="overflow-hidden hover:shadow-xl transition-all duration-300">
                     <div className="relative">
                       <img
-                        src={car.image}
-                        alt={car.name}
+                        src={car.image || "/placeholder.svg"}
+                        alt={car.make + " " + car.model}
                         className="w-full h-48 object-cover"
                       />
                       <Badge className="absolute top-3 left-3 bg-green-500">
-                        {car.availability}
+                        Available
                       </Badge>
                       <button className="absolute top-3 right-3 p-2 bg-white/90 rounded-full hover:bg-white transition-colors">
                         <Heart className="h-4 w-4" />
@@ -241,16 +180,16 @@ const CarsPage = () => {
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className="text-lg">{car.name}</CardTitle>
+                          <CardTitle className="text-lg">{car.make} {car.model}</CardTitle>
                           <CardDescription className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
-                            {car.location}
+                            Mumbai
                           </CardDescription>
                         </div>
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                          <span className="text-sm font-medium">{car.rating}</span>
-                          <span className="text-xs text-muted-foreground">({car.reviews})</span>
+                          <span className="text-sm font-medium">4.5</span>
+                          <span className="text-xs text-muted-foreground">(23)</span>
                         </div>
                       </div>
                     </CardHeader>
@@ -258,23 +197,14 @@ const CarsPage = () => {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex flex-wrap gap-2">
-                          {car.features.map((feature) => (
-                            <Badge key={feature} variant="secondary" className="text-xs">
-                              {feature}
-                            </Badge>
-                          ))}
+                          <Badge variant="secondary" className="text-xs">
+                            {car.year}
+                          </Badge>
                         </div>
-
-                        {selectedCategory === "buy" && (
-                          <div className="text-sm text-muted-foreground">
-                            <p>{car.year} • {car.kmDriven.toLocaleString()} km</p>
-                            <p>Owner: {car.owner}</p>
-                          </div>
-                        )}
-
+                        {/* Display more info as needed */}
                         <div className="flex justify-end items-center pt-4 border-t border-border">
                           <Button>
-                            {selectedCategory === "buy" ? "Buy Now" : "Book Now"}
+                            Book Now
                           </Button>
                         </div>
                       </div>

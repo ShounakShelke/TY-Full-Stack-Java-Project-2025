@@ -1,35 +1,79 @@
-# CarCircle Pvt. Ltd. 
+# CarsCircle - Full Stack (React + Spring Boot + MongoDB)
 
-## Overview
-Drive Wise Dashboards is a comprehensive car rental management web application designed to streamline vehicle rentals, fleet management, and user interactions. The project features role-based dashboards for customers, managers, mechanics, and administrators, each tailored to their specific needs.
+A full-stack application featuring a modern React frontend and a Spring Boot backend backed by MongoDB. Includes authentication, role-based dashboards (admin/manager/mechanic), vehicle inventory management (CRUD), bookings, profile management, and robust error handling.
 
-## Key Features
-- **Customer Dashboard:** View active rentals, completed trips, loyalty points, and quick actions.
-- **Manager Dashboard:** Manage fleet, bookings, and vehicle assignments.
-- **Mechanic Dashboard:** Track assignments, service reports, job progress, and alerts.
-- **Admin Dashboard:** User management, security settings, and system oversight.
-- **Role-based Authentication:** Secure access with tailored views and permissions.
-- **Popup Modals:** Interactive components for detailed views, reviews, and management tasks.
-- **Responsive UI:** Built with React, Tailwind CSS, and Radix UI components for a modern, accessible interface.
-- **Routing & State Management:** React Router for navigation and React Query for data fetching and caching.
+## Tech Stack
+- Frontend: React + Vite, Tailwind CSS, Framer Motion
+- Backend: Spring Boot 3, Spring Web, Spring Data MongoDB
+- Database: MongoDB
 
-## Technology Stack
-- React 18 with TypeScript
-- Vite as the build tool
-- Tailwind CSS for styling
-- Radix UI components
-- React Query for server state management
-- Framer Motion for animations
-- Lucide React for icons
+## Features
+- Authentication (register/login) with global auth state
+- Role-based routing and dashboards (admin, manager, mechanic)
+- Vehicle inventory CRUD (add/edit/delete)
+- Bookings (create/list)
+- Profile view/update
+- Centralized API helpers, toasts, and error handling
 
 ## Project Structure
-- `src/main.tsx`: Application entry point
-- `src/App.tsx`: Main app component with routing
-- `src/pages/`: Contains all page components including dashboards and public pages
-- `src/components/`: Reusable UI components and popups
-- `src/lib/`: Utility functions and helpers
+- `src/` React frontend
+- `backend/carcircle/` Spring Boot backend
 
-## Setup & Running
-1. Install dependencies: `npm install`
-2. Start development server: `npm run dev`
-3. Access the app at: `http://localhost:8080`
+## Prerequisites
+- Node.js 18+
+- Java 17+
+- Maven 3.9+
+- MongoDB running locally on `mongodb://localhost:27017`
+
+## Backend Setup (Spring Boot)
+1. Navigate to backend:
+   ```bash
+   cd backend/carcircle
+   ```
+2. Configure MongoDB (defaults in `src/main/resources/application.properties`):
+   ```properties
+   spring.data.mongodb.uri=mongodb://localhost:27017/cars_circle
+   spring.data.mongodb.database=cars_circle
+   ```
+3. Run the backend:
+   ```bash
+   mvn spring-boot:run
+   ```
+4. API base: `http://localhost:8080`
+
+## Frontend Setup (React)
+1. From project root:
+   ```bash
+   npm install
+   npm run dev
+   ```
+2. The app runs at `http://localhost:5173` (Vite). Ensure API calls are proxied or same-origin if served together.
+
+## Environment
+- Frontend calls the backend using relative paths like `/api/...`. If you run both locally on separate ports, configure a dev proxy in Vite if needed.
+
+## API Overview (Selected)
+- Auth: `POST /api/auth/register`, `POST /api/auth/login`
+- Users (Admin): `GET /api/auth/users`, `POST /api/auth/users`, `PUT /api/auth/users/{id}`, `DELETE /api/auth/users/{id}`
+- Vehicles: `GET /api/vehicles`, `POST /api/vehicles`, `GET /api/vehicles/{id}`, `PUT /api/vehicles/{id}`, `DELETE /api/vehicles/{id}`
+- Cars (public list): `GET /api/cars`, `GET /api/cars/{id}`
+- Bookings: `GET /api/bookings`, `POST /api/bookings`
+- Dashboard: `GET /api/dashboard/{role}`
+
+## Development Notes
+- Error handling centralized in frontend API helpers with toasts
+- Protected routes via `ProtectedRoute` and global `AuthContext`
+- Backend uses MongoDB repositories for persistent storage
+
+## Testing
+- Start MongoDB, backend, then frontend
+- Create a user via signup or admin panel
+- Test: add/edit/delete vehicles; create booking; edit profile; role-based page access
+
+## Deployment
+- Build frontend: `npm run build` (outputs to `dist/`)
+- Build backend jar: `mvn package`
+- Serve frontend statically or integrate with Spring static resources as desired
+
+## License
+MIT

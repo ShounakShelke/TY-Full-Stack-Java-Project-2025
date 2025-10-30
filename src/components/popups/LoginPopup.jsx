@@ -1,13 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const demoUsers = [
-  { email: "customer@example.com", password: "password1", role: "customer" },
-  { email: "manager@example.com", password: "password2", role: "manager" },
-  { email: "mechanic@example.com", password: "password3", role: "mechanic" },
-  { email: "admin@example.com", password: "password4", role: "admin" }
-];
+import { login as apiLogin } from "../../api/auth";
 
 const LoginPopup = ({ isOpen, onClose, onLogin }) => {
   const [email, setEmail] = useState("");
@@ -16,16 +10,16 @@ const LoginPopup = ({ isOpen, onClose, onLogin }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = () => {
-    const user = demoUsers.find(
-      (u) => u.email === email && u.password === password
-    );
-    if (user) {
-      setError("");
-      onLogin(user);
-      onClose();
+  const handleSubmit = async () => {
+    setError("");
+    const res = await apiLogin({ email, password });
+    if (res.error) {
+      setError(res.error);
     } else {
-      setError("Invalid email or password");
+      localStorage.setItem("token", res.token);
+      localStorage.setItem("user", JSON.stringify(res));
+      onLogin?.(res);
+      onClose();
     }
   };
 

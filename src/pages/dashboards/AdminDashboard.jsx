@@ -1,52 +1,130 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, BarChart3, AlertCircle, Activity } from "lucide-react";
+import { Shield, Users, BarChart3, AlertCircle, Activity, Edit, Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import UserManagementPopup from "@/components/UserManagementPopup";
 import SecurityPopup from "@/components/SecurityPopup";
+import { getDashboard } from "../../api/dashboard";
+import { listUsers, deleteUser, updateUser, createUser } from "../../api/users";
+
+function UserModal({ open, onClose, onSave, user }) {
+  const [form, setForm] = useState(user || { username: "", email: "", password: "", role: "customer" });
+  useEffect(() => { setForm(user || { username: "", email: "", password: "", role: "customer" }); }, [user, open]);
+  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleSubmit = async e => {
+    e.preventDefault();
+    await onSave(form);
+    onClose();
+  };
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+      <form className="bg-white p-6 rounded shadow w-full max-w-sm" onSubmit={handleSubmit}>
+        <h2 className="text-lg font-bold mb-4">{user ? "Edit User" : "Add User"}</h2>
+        <input required name="username" value={form.username} onChange={handleChange} placeholder="Username" className="mb-2 w-full border p-2 rounded" />
+        <input required name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" className="mb-2 w-full border p-2 rounded" />
+        {!user && (<input required name="password" type="password" value={form.password} onChange={handleChange} placeholder="Password" className="mb-2 w-full border p-2 rounded" />)}
+        <select name="role" value={form.role} onChange={handleChange} className="mb-4 w-full border p-2 rounded">
+          <option value="customer">Customer</option>
+          <option value="manager">Manager</option>
+          <option value="mechanic">Mechanic</option>
+          <option value="admin">Admin</option>
+        </select>
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit">{user ? "Save" : "Add"}</Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function UserManagementPanel() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  useEffect(() => { load(); }, []);
+  async function load() {
+    setLoading(true);
+    setErr("");
+    const res = await listUsers();
+    if(res.error) setErr(res.error); else setUsers(res);
+    setLoading(false);
+  }
+  async function handleDelete(id) {
+    const res = await deleteUser(id); 
+    if(!res.error) load();
+  }
+  function openAdd() { setEditUser(null); setModalOpen(true); }
+  function openEdit(u) { setEditUser(u); setModalOpen(true); }
+  async function handleSave(user) {
+    if (editUser && user.id) await updateUser({ ...editUser, ...user });
+    else await createUser(user);
+    await load();
+  }
+  if (loading) return <div className="p-4">Loading users...</div>;
+  if (err) return <div className="p-4 text-red-600">{err}</div>;
+  return (
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="font-bold text-xl">User Management</h2>
+        <Button size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Add</Button>
+      </div>
+      <table className="w-full border-collapse text-sm">
+        <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th></th></tr></thead>
+        <tbody>
+          {users.map(u => (
+            <tr key={u.id} className="border-b">
+              <td>{u.id}</td><td>{u.username}</td><td>{u.email}</td><td>{u.role}</td>
+              <td>
+                <Button size="sm" className="mr-1" variant="secondary" onClick={() => openEdit(u)}><Edit className="h-4 w-4" /></Button>
+                <Button size="sm" variant="destructive" onClick={() => handleDelete(u.id)}>Delete</Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <UserModal open={modalOpen} onClose={() => setModalOpen(false)} user={editUser} onSave={handleSave} />
+    </div>
+  );
+}
 
 export const AdminDashboard = () => {
   const [showUserManagementPopup, setShowUserManagementPopup] = useState(false);
   const [showSecurityPopup, setShowSecurityPopup] = useState(false);
-  const stats = [
-    { label: "Total Users", value: "2,847", icon: Users, color: "admin", trend: "+12% this month" },
-    { label: "Active Rentals", value: "156", icon: Activity, color: "admin", trend: "85% capacity" },
-    { label: "System Health", value: "99.9%", icon: BarChart3, color: "green-500", trend: "All systems operational" },
-    { label: "Open Tickets", value: "23", icon: AlertCircle, color: "orange-500", trend: "3 high priority" },
-  ];
+  const [stats, setStats] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-  const systemAlerts = [
-    {
-      id: 1,
-      type: "warning",
-      title: "High API Usage",
-      description: "Payment gateway approaching rate limit",
-      time: "5 min ago"
-    },
-    {
-      id: 2,
-      type: "info",
-      title: "System Backup Completed",
-      description: "Daily backup completed successfully",
-      time: "2 hours ago"
-    },
-  ];
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
 
-  const recentActivities = [
-    { action: "New vendor registration", user: "Fleet Pro Services", time: "10 min ago", type: "vendor" },
-    { action: "System maintenance completed", user: "System", time: "2 hours ago", type: "system" },
-    { action: "Payment dispute resolved", user: "Customer #1847", time: "4 hours ago", type: "payment" },
-    { action: "License renewal", user: "AutoCorp Ltd", time: "1 day ago", type: "license" },
-  ];
+  async function fetchDashboard() {
+    setLoading(true);
+    setErr("");
+    try {
+      const data = await getDashboard("admin");
+      setStats(data.stats || []);
+      setAlerts(data.alerts || []);
+    } catch (e) {
+      setErr((e && e.message) || "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const userMetrics = [
-    { role: "Customers", count: 1847, percentage: 65, color: "customer" },
-    { role: "Vendors", count: 423, percentage: 15, color: "vendor" },
-    { role: "Mechanics", count: 156, percentage: 5, color: "mechanic" },
-    { role: "Admins", count: 12, percentage: 1, color: "admin" },
-  ];
+  // Map to icons/colors
+  const statIcons = [Users, Activity, BarChart3, AlertCircle];
+  const statColors = ["admin", "admin", "green-500", "orange-500"];
+
+  if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
+  if (err) return <div className="p-8 text-center text-red-600">{err}</div>;
 
   return (
     <div className="min-h-screen bg-background theme-admin">
@@ -83,7 +161,8 @@ export const AdminDashboard = () => {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         >
           {stats.map((stat, index) => {
-            const IconComponent = stat.icon;
+            const IconComponent = statIcons[index] || Users;
+            const color = statColors[index] || "admin";
             return (
               <motion.div
                 key={stat.label}
@@ -97,7 +176,7 @@ export const AdminDashboard = () => {
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       {stat.label}
                     </CardTitle>
-                    <IconComponent className={`h-4 w-4 text-${stat.color}`} />
+                    <IconComponent className={`h-4 w-4 text-${color}`} />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold mb-1">{stat.value}</div>
@@ -127,13 +206,11 @@ export const AdminDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {systemAlerts.map((alert) => (
+                {!alerts.length ? <span>No alerts found.</span> : alerts.map((alert, i) => (
                   <motion.div
-                    key={alert.id}
+                    key={i}
                     whileHover={{ scale: 1.02 }}
-                    className={`p-3 rounded-lg border ${
-                      alert.type === 'warning' ? 'border-orange-200 bg-orange-50/50' : 'border-blue-200 bg-blue-50/50'
-                    }`}
+                    className={`p-3 rounded-lg border ${alert.type === 'warning' ? 'border-orange-200 bg-orange-50/50' : 'border-blue-200 bg-blue-50/50'}`}
                   >
                     <div className="flex items-start gap-3">
                       <Badge variant={alert.type === 'warning' ? 'destructive' : 'secondary'}>
@@ -268,6 +345,7 @@ export const AdminDashboard = () => {
       {showSecurityPopup && (
         <SecurityPopup onClose={() => setShowSecurityPopup(false)} />
       )}
+      <UserManagementPanel />
 
     </div>
   );

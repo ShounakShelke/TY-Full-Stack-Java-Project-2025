@@ -1,11 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const demoUsers = [
-  { email: "user1@example.com", password: "password1" },
-  { email: "user2@example.com", password: "password2" }
-];
+import { register as apiRegister } from "../../api/auth";
 
 const SignupPopup = ({ isOpen, onClose, onSignup }) => {
   const [email, setEmail] = useState("");
@@ -15,18 +11,21 @@ const SignupPopup = ({ isOpen, onClose, onSignup }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setError("");
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-    if (demoUsers.find((u) => u.email === email)) {
-      setError("Email already registered");
-      return;
+    const res = await apiRegister({ email, password });
+    if (res.error) {
+      setError(res.error);
+    } else {
+      // simulate auto-login
+      localStorage.setItem("user", JSON.stringify(res));
+      onSignup?.(res);
+      onClose();
     }
-    setError("");
-    onSignup({ email, password });
-    onClose();
   };
 
   return (
