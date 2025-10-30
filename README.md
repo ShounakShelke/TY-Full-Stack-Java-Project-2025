@@ -76,4 +76,4 @@ A full-stack application featuring a modern React frontend and a Spring Boot bac
 - Serve frontend statically or integrate with Spring static resources as desired
 
 ## License
-MIT
+SVU
