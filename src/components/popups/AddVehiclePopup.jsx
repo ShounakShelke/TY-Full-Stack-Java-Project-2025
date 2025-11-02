@@ -31,11 +31,44 @@ export const AddVehiclePopup = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission logic here
-    console.log("Vehicle data:", formData);
-    onClose();
+    try {
+      const { addVehicle } = await import("../../api/cars");
+      const res = await addVehicle({
+        make: formData.make,
+        model: formData.model,
+        year: parseInt(formData.year),
+        price: parseFloat(formData.dailyRate),
+        color: formData.color,
+        licensePlate: formData.licensePlate,
+        description: formData.description,
+        forRent: true,
+        forSale: false
+      });
+      if (!res.error) {
+        console.log("Vehicle added:", res);
+        alert("Vehicle added successfully!");
+        // Reset form
+        setFormData({
+          make: "",
+          model: "",
+          year: "",
+          color: "",
+          licensePlate: "",
+          dailyRate: "",
+          description: "",
+          image: null,
+        });
+        onClose();
+      } else {
+        console.error("Error adding vehicle:", res.error);
+        alert("Failed to add vehicle: " + res.error);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to add vehicle. Please try again.");
+    }
   };
 
   return (

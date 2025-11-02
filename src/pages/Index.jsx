@@ -1,22 +1,24 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/ui/navbar";
 import { HeroSection } from "@/components/landing/hero-section";
 import { AuthModal } from "@/components/auth/auth-modal.jsx";
-import { CustomerDashboard } from "./dashboards/CustomerDashboard";
-import { ManagerDashboard } from "./dashboards/ManagerDashboard";
-import { MechanicDashboard } from "./dashboards/MechanicDashboard";
-import { AdminDashboard } from "./dashboards/AdminDashboard";
 import RoleSelectionPopup from "@/components/popups/RoleSelectionPopup";
+import LoginPopup from "@/components/popups/LoginPopup";
+import SignupPopup from "@/components/popups/SignupPopup";
+import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
-  const [currentUser, setCurrentUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoginPopupOpen, setIsLoginPopupOpen] = useState(false);
   const [isSignupPopupOpen, setIsSignupPopupOpen] = useState(false);
   const [isRoleSelectionOpen, setIsRoleSelectionOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const { login, register, logout, isAuthenticated, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Initialize GSAP animations on component mount
   useEffect(() => {
@@ -29,6 +31,13 @@ const Index = () => {
     });
   }, []);
 
+  // Redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(`/${user.role}`);
+    }
+  }, [isAuthenticated, user, navigate]);
+
   const handleLogin = () => {
     setIsRoleSelectionOpen(true);
   };
@@ -37,82 +46,43 @@ const Index = () => {
     setIsRoleSelectionOpen(true);
   };
 
-  const handleLoginSuccess = (user) => {
-    setCurrentUser(user.role);
-    toast({
-      title: "Welcome to CarCircle!",
-      description: `You've successfully logged in as ${user.email} (${user.role}).`,
-    });
-  };
-
-  const handleSignupSuccess = (user) => {
-    setCurrentUser("customer"); // For demo, set to customer
-    toast({
-      title: "Welcome to CarCircle!",
-      description: `Account created successfully for ${user.email}.`,
-    });
-  };
-
   const handleRoleSelect = (role) => {
-    setCurrentUser(role);
+    setSelectedRole(role);
+    setIsRoleSelectionOpen(false);
+    setIsLoginPopupOpen(true);
+  };
+
+  const handleLoginSuccess = () => {
+    setIsLoginPopupOpen(false);
     toast({
       title: "Welcome to CarCircle!",
-      description: `You've successfully logged in as a ${role}.`,
+      description: "You've successfully logged in.",
     });
+    // Navigation will happen via AuthContext
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
+  const handleSignupSuccess = () => {
+    setIsSignupPopupOpen(false);
     toast({
-      title: "Logged out",
-      description: "You've been successfully logged out.",
+      title: "Welcome to CarCircle!",
+      description: "Account created successfully.",
     });
+    // Navigation will happen via AuthContext
   };
 
-  // Render appropriate dashboard based on user role
-  const renderDashboard = () => {
-    switch (currentUser) {
-      case "customer":
-        return <CustomerDashboard />;
-      case "manager":
-        return <ManagerDashboard />;
-      case "mechanic":
-        return <MechanicDashboard />;
-      case "admin":
-        return <AdminDashboard />;
-      default:
-        return null;
-    }
+  const handleSwitchToSignup = () => {
+    setIsLoginPopupOpen(false);
+    setIsSignupPopupOpen(true);
   };
 
-  // If user is logged in, show dashboard
-  if (currentUser) {
-    return (
-      <div className="min-h-screen">
-        {/* Navigation bar for logged-in users */}
-        <div className="fixed top-4 right-4 z-50">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600 transition-colors"
-          >
-            Logout
-          </motion.button>
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentUser}
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -100 }}
-            transition={{ duration: 0.3 }}
-          >
-            {renderDashboard()}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    );
+  const handleSwitchToLogin = () => {
+    setIsSignupPopupOpen(false);
+    setIsLoginPopupOpen(true);
+  };
+
+  // If user is logged in, don't render landing page
+  if (isAuthenticated) {
+    return null; // Will redirect via useEffect
   }
 
   // Landing page for non-authenticated users
@@ -290,14 +260,22 @@ const Index = () => {
       <RoleSelectionPopup
         isOpen={isRoleSelectionOpen}
         onClose={() => setIsRoleSelectionOpen(false)}
-        onSelectRole={(role) => {
-          setIsRoleSelectionOpen(false);
-          setCurrentUser(role);
-          toast({
-            title: "Welcome to CarCircle!",
-            description: `You've successfully logged in as a ${role}.`,
-          });
-        }}
+        onSelectRole={handleRoleSelect}
+      />
+
+      <LoginPopup
+        isOpen={isLoginPopupOpen}
+        onClose={() => setIsLoginPopupOpen(false)}
+        onLogin={handleLoginSuccess}
+        onSwitchToSignup={handleSwitchToSignup}
+      />
+
+      <SignupPopup
+        isOpen={isSignupPopupOpen}
+        onClose={() => setIsSignupPopupOpen(false)}
+        onSignup={handleSignupSuccess}
+        onSwitchToLogin={handleSwitchToLogin}
+        selectedRole={selectedRole}
       />
     </div>
   );

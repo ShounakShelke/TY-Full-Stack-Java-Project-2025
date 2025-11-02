@@ -1,19 +1,25 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Wrench, Calendar, CheckCircle, AlertTriangle, FileText, Clock } from "lucide-react";
+import { Wrench, Calendar, CheckCircle, AlertTriangle, FileText, Clock, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { JobTrackerPopup } from "@/components/popups/JobTrackerPopup";
 import { AlertPopup } from "@/components/popups/AlertPopup";
+import { AddMaintenanceJobPopup } from "@/components/popups/AddMaintenanceJobPopup";
 import { getDashboard } from "../../api/dashboard";
+import { getMaintenanceJobs, addMaintenanceJob, updateMaintenanceJob, deleteMaintenanceJob } from "../../api/maintenance";
+import { useAuth } from "../../context/AuthContext";
 
 export const MechanicDashboard = () => {
+  const { logout } = useAuth();
   const [showAssignmentPopup, setShowAssignmentPopup] = useState(false);
   const [showServiceReportPopup, setShowServiceReportPopup] = useState(false);
   const [showJobTrackerPopup, setShowJobTrackerPopup] = useState(false);
   const [showAlertPopup, setShowAlertPopup] = useState(false);
+  const [showAddMaintenanceJobPopup, setShowAddMaintenanceJobPopup] = useState(false);
+  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
 
   // Track timers for each job by job id
   const [jobTimers, setJobTimers] = useState({});
@@ -25,6 +31,12 @@ export const MechanicDashboard = () => {
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  useEffect(() => {
+    if (!showAddMaintenanceJobPopup) {
+      fetchDashboard();
+    }
+  }, [showAddMaintenanceJobPopup]);
 
   async function fetchDashboard() {
     setLoading(true);
@@ -75,10 +87,17 @@ export const MechanicDashboard = () => {
             <p className="text-muted-foreground mt-1">Track maintenance jobs and vehicle status</p>
           </div>
           <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setShowAddMaintenanceJobPopup(true)}>
+              <Wrench className="h-4 w-4 mr-2" /> Add Maintenance Job
+            </Button>
             <Button variant="outline" onClick={() => setShowServiceReportPopup(true)}>
               <FileText className="h-4 w-4 mr-2" /> Upload Report
             </Button>
             <Button className="bg-mechanic hover:bg-mechanic/90" onClick={() => alert("Marked as complete")}> <CheckCircle className="h-4 w-4 mr-2" />Mark Complete</Button>
+            <Button variant="outline" onClick={logout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </motion.header>
@@ -155,6 +174,7 @@ export const MechanicDashboard = () => {
         {showServiceReportPopup && <AlertPopup onClose={() => setShowServiceReportPopup(false)} />}
         {showJobTrackerPopup && <JobTrackerPopup onClose={() => setShowJobTrackerPopup(false)} />}
         {showAlertPopup && <AlertPopup onClose={() => setShowAlertPopup(false)} />}
+        {showAddMaintenanceJobPopup && <AddMaintenanceJobPopup isOpen={showAddMaintenanceJobPopup} onClose={() => setShowAddMaintenanceJobPopup(false)} />}
       </div>
     </div>
   );

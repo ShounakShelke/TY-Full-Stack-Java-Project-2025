@@ -1,24 +1,22 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { login as apiLogin } from "../../api/auth";
+import { useAuth } from "../../context/AuthContext";
 
-const LoginPopup = ({ isOpen, onClose, onLogin }) => {
+const LoginPopup = ({ isOpen, onClose, onSwitchToSignup }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const { login } = useAuth();
 
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
     setError("");
-    const res = await apiLogin({ email, password });
+    const res = await login({ email, password });
     if (res.error) {
       setError(res.error);
     } else {
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res));
-      onLogin?.(res);
       onClose();
     }
   };
@@ -46,6 +44,15 @@ const LoginPopup = ({ isOpen, onClose, onLogin }) => {
           />
         </div>
         {error && <p className="text-red-600 mb-4">{error}</p>}
+        <div className="flex justify-between items-center mb-4">
+          <button
+            type="button"
+            onClick={onSwitchToSignup}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Don't have an account? Sign up
+          </button>
+        </div>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} variant="outline" data-testid="login-cancel">
             Cancel

@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, BarChart3, AlertCircle, Activity, Edit, Plus } from "lucide-react";
+import { Shield, Users, BarChart3, AlertCircle, Activity, Edit, Plus, LogOut, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import UserManagementPopup from "@/components/UserManagementPopup";
+import { UserManagementPopup } from "@/components/popups/UserManagementPopup";
 import SecurityPopup from "@/components/SecurityPopup";
+import { MessagePopup } from "@/components/popups/MessagePopup";
 import { getDashboard } from "../../api/dashboard";
 import { listUsers, deleteUser, updateUser, createUser } from "../../api/users";
+import { useAuth } from "../../context/AuthContext";
 
 function UserModal({ open, onClose, onSave, user }) {
   const [form, setForm] = useState(user || { username: "", email: "", password: "", role: "customer" });
@@ -94,8 +96,10 @@ function UserManagementPanel() {
 }
 
 export const AdminDashboard = () => {
+  const { logout } = useAuth();
   const [showUserManagementPopup, setShowUserManagementPopup] = useState(false);
   const [showSecurityPopup, setShowSecurityPopup] = useState(false);
+  const [showMessagePopup, setShowMessagePopup] = useState(false);
   const [stats, setStats] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -144,9 +148,17 @@ export const AdminDashboard = () => {
             </p>
           </div>
           <div className="flex gap-3">
+            <Button className="bg-admin hover:bg-admin/90" onClick={() => setShowMessagePopup(true)}>
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Send a Message
+            </Button>
             <Button className="bg-admin hover:bg-admin/90">
               <Shield className="h-4 w-4 mr-2" />
               Security Center
+            </Button>
+            <Button variant="outline" onClick={logout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
             </Button>
           </div>
         </div>
@@ -236,16 +248,16 @@ export const AdminDashboard = () => {
                 <CardTitle className="text-lg">User Distribution</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {userMetrics.map((metric) => (
-                  <div key={metric.role} className="space-y-2">
+                {stats.filter(stat => stat.label.includes('Users') || stat.label.includes('Customers') || stat.label.includes('Managers') || stat.label.includes('Mechanics')).map((metric) => (
+                  <div key={metric.label} className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>{metric.role}</span>
-                      <span className="font-medium">{metric.count}</span>
+                      <span>{metric.label}</span>
+                      <span className="font-medium">{metric.value}</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className={`bg-${metric.color} h-2 rounded-full transition-all duration-500`}
-                        style={{ width: `${metric.percentage}%` }}
+                        className="bg-admin h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${(parseInt(metric.value) / Math.max(...stats.map(s => parseInt(s.value)))) * 100}%` }}
                       ></div>
                     </div>
                   </div>
@@ -273,21 +285,19 @@ export const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentActivities.map((activity, index) => (
+                  {!alerts.length ? <span>No recent activities.</span> : alerts.slice(0, 5).map((activity, index) => (
                     <motion.div
                       key={index}
                       whileHover={{ scale: 1.01 }}
                       className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-all"
                     >
                       <div className={`w-2 h-2 rounded-full bg-${
-                        activity.type === 'vendor' ? 'vendor' :
-                        activity.type === 'system' ? 'green-500' :
-                        activity.type === 'payment' ? 'admin' :
+                        activity.type === 'warning' ? 'orange-500' :
                         'blue-500'
                       }`}></div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{activity.action}</p>
-                        <p className="text-xs text-muted-foreground">{activity.user}</p>
+                        <p className="text-sm font-medium">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground">{activity.description}</p>
                       </div>
                       <span className="text-xs text-muted-foreground">{activity.time}</span>
                     </motion.div>
@@ -318,14 +328,6 @@ export const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all cursor-pointer">
-            <CardContent className="p-6 text-center">
-              <BarChart3 className="h-8 w-8 text-admin mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">Analytics</h3>
-              <p className="text-sm text-muted-foreground">Platform performance data</p>
-            </CardContent>
-          </Card>
-
           <Card className="hover:shadow-lg transition-all cursor-pointer" onClick={() => setShowSecurityPopup(true)}>
             <CardContent className="p-6 text-center">
               <Shield className="h-8 w-8 text-admin mx-auto mb-3" />
@@ -340,12 +342,14 @@ export const AdminDashboard = () => {
 
       {/* Popups */}
       {showUserManagementPopup && (
-        <UserManagementPopup onClose={() => setShowUserManagementPopup(false)} />
+        <UserManagementPopup isOpen={showUserManagementPopup} onClose={() => setShowUserManagementPopup(false)} />
       )}
       {showSecurityPopup && (
         <SecurityPopup onClose={() => setShowSecurityPopup(false)} />
       )}
-      <UserManagementPanel />
+      {showMessagePopup && (
+        <MessagePopup isOpen={showMessagePopup} onClose={() => setShowMessagePopup(false)} role="admin" />
+      )}
 
     </div>
   );

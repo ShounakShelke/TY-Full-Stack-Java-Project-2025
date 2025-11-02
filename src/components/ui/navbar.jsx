@@ -2,17 +2,20 @@ import { motion } from "framer-motion";
 import { Button } from "./button";
 import { Car, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import carCircleLogo from "@/assets/carcircle-logo.jpg";
 
 export const Navbar = ({ onLoginClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const navItems = [
-    { label: "Home", href: "/" },
-    { label: "Cars", href: "/cars" },
-    { label: "Sell", href: "/sell" },
-    { label: "About", href: "/about" },
-    { label: "Contact", href: "/contact" },
+    { label: "Home", path: "/" },
+    { label: "Cars", path: "/cars" },
+    { label: "Buy/Rent", path: "/cars" },
+    { label: "Sells", path: "/sell" },
+    { label: "About", path: "/about" },
+    { label: "Contact", path: "/contact" },
   ];
 
   return (
@@ -42,17 +45,20 @@ export const Navbar = ({ onLoginClick }) => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item, index) => (
-              <motion.a
+              <motion.div
                 key={item.label}
-                href={item.href}
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 + 0.3 }}
                 whileHover={{ y: -2 }}
-                className="text-foreground hover:text-primary transition-colors font-medium"
               >
-                {item.label}
-              </motion.a>
+                <Link
+                  to={item.path}
+                  className="text-foreground hover:text-primary transition-colors font-medium"
+                >
+                  {item.label}
+                </Link>
+              </motion.div>
             ))}
           </div>
 
@@ -87,14 +93,14 @@ export const Navbar = ({ onLoginClick }) => {
           >
             <div className="py-4 space-y-3">
               {navItems.map((item) => (
-                <a
+                <Link
                   key={item.label}
-                  href={item.href}
+                  to={item.path}
                   className="block px-4 py-2 text-foreground hover:text-primary hover:bg-muted rounded-md transition-colors"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
-                </a>
+                </Link>
               ))}
               <div className="px-4 pt-4 space-y-2">
                 <Button variant="ghost" className="w-full" onClick={onLoginClick}>

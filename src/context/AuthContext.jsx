@@ -1,17 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { login as apiLogin, register as apiRegister } from '../api/auth';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('user')) || null;
-    } catch {
+      const storedUser = localStorage.getItem('user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+      console.error("Error parsing user from localStorage:", error);
       return null;
     }
   });
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
+  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
 
   useEffect(() => {
     if (user && user.token) {
@@ -19,6 +24,31 @@ export function AuthProvider({ children }) {
       localStorage.setItem('token', user.token);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      redirectToDashboard(user.role);
+    }
+  }, [user]);
+
+  const redirectToDashboard = (role) => {
+    switch (role) {
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'manager':
+        navigate('/manager');
+        break;
+      case 'mechanic':
+        navigate('/mechanic');
+        break;
+      case 'customer':
+        navigate('/customer');
+        break;
+      default:
+        navigate('/');
+    }
+  };
 
   const login = async ({ email, password }) => {
     const res = await apiLogin({ email, password });
@@ -48,6 +78,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     sessionStorage.clear(); // Also clean out all session storage for safety
+    navigate('/');
   };
 
   return (

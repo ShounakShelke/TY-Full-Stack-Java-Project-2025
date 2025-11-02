@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Car, TrendingUp, DollarSign, Users, Plus, Edit } from "lucide-react";
+import { Car, TrendingUp, DollarSign, Users, Plus, Edit, LogOut, Calendar, MapPin, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddVehiclePopup } from "@/components/popups/AddVehiclePopup";
+import { MessagePopup } from "@/components/popups/MessagePopup";
 import { getDashboard } from "../../api/dashboard";
 import { getVehicles, deleteVehicle, addVehicle, updateVehicle } from "../../api/cars";
+import { getBookings } from "../../api/bookings";
+import { useAuth } from "../../context/AuthContext";
 
 function VehicleModal({ open, onClose, onSave, vehicle }) {
   const [form, setForm] = useState(vehicle || { make: "", model: "", year: "", price: "" });
@@ -35,67 +38,21 @@ function VehicleModal({ open, onClose, onSave, vehicle }) {
   );
 }
 
-function VehicleInventoryPanel() {
-  const [vehicles, setVehicles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editVehicle, setEditVehicle] = useState(null);
-  useEffect(() => { load(); }, []);
-  async function load() {
-    setLoading(true);
-    setErr("");
-    const res = await getVehicles();
-    if(res.error) setErr(res.error); else setVehicles(res);
-    setLoading(false);
-  }
-  async function handleDelete(id) {
-    const res = await deleteVehicle(id); 
-    if(!res.error) load();
-  }
-  function openAdd() { setEditVehicle(null); setModalOpen(true); }
-  function openEdit(v) { setEditVehicle(v); setModalOpen(true); }
-  async function handleSave(car) {
-    if (editVehicle && car.id) await updateVehicle({ ...editVehicle, ...car });
-    else await addVehicle(car);
-    await load();
-  }
-  if (loading) return <div className="p-4">Loading vehicles...</div>;
-  if (err) return <div className="p-4 text-red-600">{err}</div>;
-  return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="font-bold text-xl">Inventory</h2>
-        <Button size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Add</Button>
-      </div>
-      <table className="w-full border-collapse text-sm">
-        <thead><tr><th>ID</th><th>Make</th><th>Model</th><th>Year</th><th>Price</th><th></th></tr></thead>
-        <tbody>
-          {vehicles.map(v => (
-            <tr key={v.id} className="border-b">
-              <td>{v.id}</td><td>{v.make}</td><td>{v.model}</td><td>{v.year}</td><td>₹{v.price}</td>
-              <td>
-                <Button size="sm" className="mr-1" variant="secondary" onClick={() => openEdit(v)}><Edit className="h-4 w-4" /></Button>
-                <Button size="sm" variant="destructive" onClick={() => handleDelete(v.id)}>Delete</Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <VehicleModal open={modalOpen} onClose={() => setModalOpen(false)} vehicle={editVehicle} onSave={handleSave} />
-    </div>
-  );
-}
 
 export const ManagerDashboard = () => {
+  const { logout } = useAuth();
   const [showAddVehiclePopup, setShowAddVehiclePopup] = useState(false);
+  const [showMessagePopup, setShowMessagePopup] = useState(false);
   const [stats, setStats] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     fetchDashboard();
+    fetchVehiclesAndBookings();
   }, []);
 
   async function fetchDashboard() {
@@ -111,6 +68,27 @@ export const ManagerDashboard = () => {
       setLoading(false);
     }
   }
+
+  async function fetchVehiclesAndBookings() {
+    try {
+      const [vehiclesRes, bookingsRes] = await Promise.all([
+        getVehicles(),
+        getBookings()
+      ]);
+      if (!vehiclesRes.error) {
+        setVehicles(Array.isArray(vehiclesRes) ? vehiclesRes : []);
+      }
+      if (!bookingsRes.error) {
+        setAllBookings(Array.isArray(bookingsRes) ? bookingsRes : []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch vehicles/bookings:", e);
+    }
+  }
+
+  const getVehicleBookings = (vehicleId) => {
+    return allBookings.filter(b => b.carId === vehicleId || b.vehicleId === vehicleId);
+  };
 
   // map to icons/colors
   const statIcons = [Car, Users, DollarSign, TrendingUp];
@@ -131,6 +109,13 @@ export const ManagerDashboard = () => {
           <div className="flex gap-3">
             <Button className="bg-vendor hover:bg-vendor/90" onClick={() => setShowAddVehiclePopup(true)}>
               <Plus className="h-4 w-4 mr-2" /> Add Vehicle
+            </Button>
+            <Button className="bg-vendor hover:bg-vendor/90" onClick={() => setShowMessagePopup(true)}>
+              <MessageSquare className="h-4 w-4 mr-2" /> Send a Message
+            </Button>
+            <Button variant="outline" onClick={logout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
             </Button>
           </div>
         </div>
@@ -159,41 +144,116 @@ export const ManagerDashboard = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Bookings */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="lg:col-span-2">
+          {/* Vehicles with Bookings */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="lg:col-span-3">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-vendor" />Recent Bookings</CardTitle>
-                <CardDescription>Latest rental activity</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Car className="h-5 w-5 text-vendor" />Vehicles & Bookings</CardTitle>
+                <CardDescription>Manage your vehicle fleet and view bookings</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentBookings.length === 0 ? <span>No recent bookings.</span> : recentBookings.map((booking) => (
-                    <motion.div key={booking.id} whileHover={{ scale: 1.01 }} className="flex items-center justify-between p-4 rounded-lg border border-border hover:shadow-md transition-all">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="font-semibold">{booking.customer}</h4>
-                          <Badge
-                            variant={booking.status === "Confirmed" ? "default" : booking.status === "In Progress" ? "secondary" : "outline"}
-                            className={booking.status === "Confirmed" ? "bg-vendor text-white" : booking.status === "In Progress" ? "bg-orange-500 text-white" : ""}
-                          >{booking.status}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{booking.car} • {booking.duration}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-vendor">{booking.amount}</p>
-                        <Button variant="ghost" size="sm" className="text-xs">View Details</Button>
-                      </div>
-                    </motion.div>
-                  ))}
+                <div className="space-y-6">
+                  {vehicles.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No vehicles found. Add a vehicle to get started.</p>
+                    </div>
+                  ) : (
+                    vehicles.map((vehicle) => {
+                      const vehicleBookings = getVehicleBookings(vehicle.id);
+                      return (
+                        <motion.div 
+                          key={vehicle.id} 
+                          whileHover={{ scale: 1.01 }} 
+                          className="p-4 rounded-lg border border-border hover:shadow-md transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-lg">{vehicle.make} {vehicle.model} ({vehicle.year})</h4>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <p className="text-sm text-muted-foreground">Daily Rate: ₹{vehicle.price || "N/A"}</p>
+                                {vehicle.licensePlate && (
+                                  <p className="text-sm text-muted-foreground">• License Plate: {vehicle.licensePlate}</p>
+                                )}
+                                {vehicle.carNumber && (
+                                  <p className="text-sm text-muted-foreground">• Car Number: {vehicle.carNumber}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => {}}>
+                                <Edit className="h-4 w-4 mr-1" />Edit
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={async () => {
+                                const res = await deleteVehicle(vehicle.id);
+                                if (!res.error) await fetchVehiclesAndBookings();
+                              }}>
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Bookings Section for this Vehicle */}
+                          <div className="mt-4 pt-4 border-t">
+                            <h5 className="font-medium mb-3 flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              Bookings ({vehicleBookings.length})
+                            </h5>
+                            {vehicleBookings.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No bookings for this vehicle</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {vehicleBookings.map((booking) => (
+                                  <div key={booking.id} className="p-3 bg-muted/50 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <Badge variant={booking.status === "Confirmed" ? "default" : "outline"}>
+                                            {booking.status || "Pending"}
+                                          </Badge>
+                                          <span className="text-sm text-muted-foreground">
+                                            Booking #{booking.id}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                                          {booking.startDate && (
+                                            <span className="flex items-center gap-1">
+                                              <Calendar className="h-3 w-3" />
+                                              {new Date(booking.startDate).toLocaleDateString()} - {booking.endDate ? new Date(booking.endDate).toLocaleDateString() : "N/A"}
+                                            </span>
+                                          )}
+                                          {booking.pickupLocation && (
+                                            <span className="flex items-center gap-1">
+                                              <MapPin className="h-3 w-3" />
+                                              {booking.pickupLocation}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })
+                  )}
                 </div>
-                <div className="mt-4"><Button variant="outline" className="w-full">View All Bookings</Button></div>
               </CardContent>
             </Card>
           </motion.div>
         </div>
-        <AddVehiclePopup isOpen={showAddVehiclePopup} onClose={() => setShowAddVehiclePopup(false)} />
-        <VehicleInventoryPanel />
+        <AddVehiclePopup 
+          isOpen={showAddVehiclePopup} 
+          onClose={async () => {
+            setShowAddVehiclePopup(false);
+            await fetchVehiclesAndBookings();
+          }} 
+        />
+        {showMessagePopup && (
+          <MessagePopup isOpen={showMessagePopup} onClose={() => setShowMessagePopup(false)} role="manager" />
+        )}
       </div>
     </div>
   );

@@ -5,9 +5,10 @@ import path from "path";
 export default defineConfig(() => ({
   server: {
     host: "localhost",
+    port: 5014,
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        target: "http://localhost:8081",
         changeOrigin: true,
       },
     },

@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, Car, IndianRupee, Calendar, Fuel, Settings, MapPin } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Upload, Car, IndianRupee, Calendar, Fuel, Settings, MapPin, User, Phone, Mail, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SellReceiptPopup } from "@/components/popups/SellReceiptPopup";
 
 const SellPage = () => {
   const { toast } = useToast();
@@ -24,17 +26,94 @@ const SellPage = () => {
     description: "",
     ownerType: "",
   });
+  const [ownerData, setOwnerData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
+  const [showReceiptPopup, setShowReceiptPopup] = useState(false);
+  const [listingToken, setListingToken] = useState("");
+  const [listingResult, setListingResult] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast({
-      title: "Car Listed Successfully!",
-      description: "Your car has been listed for sale. Our team will review and contact you soon.",
-    });
+    
+    // Validate owner details
+    if (!ownerData.name || !ownerData.phone || !ownerData.email) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all owner details (Name, Phone, Email)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Add vehicle to database with forSale flag
+      const { addVehicle } = await import("../api/cars");
+      const vehicleData = {
+        make: formData.brand,
+        model: formData.model,
+        year: parseInt(formData.year),
+        price: parseFloat(formData.price),
+        kmDriven: formData.kmDriven,
+        fuelType: formData.fuelType,
+        transmission: formData.transmission,
+        location: formData.location,
+        description: formData.description,
+        ownerType: formData.ownerType,
+        ownerName: ownerData.name,
+        ownerPhone: ownerData.phone,
+        ownerEmail: ownerData.email,
+        ownerAddress: ownerData.address,
+        forSale: true, // Mark as for sale
+        forRent: false // Not for rent
+      };
+      
+      const result = await addVehicle(vehicleData);
+      if (result.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive"
+        });
+      } else {
+        // Generate token
+        const token = generateToken();
+        setListingToken(token);
+        setListingResult({ ...vehicleData, id: result.id || Date.now() });
+        
+        // Show receipt popup
+        setShowReceiptPopup(true);
+        
+        toast({
+          title: "Car Listed Successfully!",
+          description: "Your car has been listed for sale. Please check your receipt.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to list car. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleOwnerInputChange = (field, value) => {
+    setOwnerData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const generateToken = () => {
+    // Generate a unique token: SEL + timestamp + random number
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `SEL${timestamp}${random}`;
   };
 
   return (
@@ -51,10 +130,10 @@ const SellPage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center text-white">
             <h1 className="text-5xl font-montserrat font-bold mb-6">
-              Sell Your Car
+              Sells
             </h1>
             <p className="text-xl opacity-90 max-w-3xl mx-auto">
-              Get the best price for your car with CarCircle. List your vehicle and connect with genuine buyers across India.
+              Get the best price for your car with CarCircle. List your vehicle and connect with genuine buyers across India. Your listed cars will appear in the "For Sale" section.
             </p>
           </div>
         </div>
@@ -202,6 +281,72 @@ const SellPage = () => {
                       </div>
                     </div>
 
+                    {/* Owner Details Section */}
+                    <div className="pt-4 border-t">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        Owner Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="ownerName" className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            Full Name *
+                          </Label>
+                          <Input
+                            id="ownerName"
+                            value={ownerData.name}
+                            onChange={(e) => handleOwnerInputChange("name", e.target.value)}
+                            placeholder="Enter your full name"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="ownerPhone" className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            Phone Number *
+                          </Label>
+                          <Input
+                            id="ownerPhone"
+                            type="tel"
+                            value={ownerData.phone}
+                            onChange={(e) => handleOwnerInputChange("phone", e.target.value)}
+                            placeholder="Enter your phone number"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="ownerEmail" className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            Email Address *
+                          </Label>
+                          <Input
+                            id="ownerEmail"
+                            type="email"
+                            value={ownerData.email}
+                            onChange={(e) => handleOwnerInputChange("email", e.target.value)}
+                            placeholder="Enter your email address"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="ownerAddress" className="flex items-center gap-2">
+                            <Home className="h-4 w-4" />
+                            Address
+                          </Label>
+                          <Input
+                            id="ownerAddress"
+                            value={ownerData.address}
+                            onChange={(e) => handleOwnerInputChange("address", e.target.value)}
+                            placeholder="Enter your address"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Additional Details */}
                     <div className="space-y-2">
                       <Label htmlFor="ownerType">Owner Type</Label>
@@ -303,6 +448,36 @@ const SellPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Receipt Popup */}
+      <SellReceiptPopup
+        isOpen={showReceiptPopup}
+        onClose={() => {
+          setShowReceiptPopup(false);
+          // Reset forms after closing receipt
+          setFormData({
+            brand: "",
+            model: "",
+            year: "",
+            kmDriven: "",
+            fuelType: "",
+            transmission: "",
+            location: "",
+            price: "",
+            description: "",
+            ownerType: "",
+          });
+          setOwnerData({
+            name: "",
+            phone: "",
+            email: "",
+            address: "",
+          });
+        }}
+        listingData={listingResult || formData}
+        ownerData={ownerData}
+        token={listingToken}
+      />
     </div>
   );
 };

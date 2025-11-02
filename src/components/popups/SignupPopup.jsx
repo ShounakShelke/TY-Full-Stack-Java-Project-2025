@@ -1,13 +1,17 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { register as apiRegister } from "../../api/auth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "../../context/AuthContext";
 
-const SignupPopup = ({ isOpen, onClose, onSignup }) => {
+const SignupPopup = ({ isOpen, onClose, selectedRole, onSwitchToLogin }) => {
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState(selectedRole || "customer");
   const [error, setError] = useState("");
+  const { register, login } = useAuth();
 
   if (!isOpen) return null;
 
@@ -17,14 +21,17 @@ const SignupPopup = ({ isOpen, onClose, onSignup }) => {
       setError("Passwords do not match");
       return;
     }
-    const res = await apiRegister({ email, password });
+    const res = await register({ email, username, password, role });
     if (res.error) {
       setError(res.error);
     } else {
-      // simulate auto-login
-      localStorage.setItem("user", JSON.stringify(res));
-      onSignup?.(res);
-      onClose();
+      // Auto-login after successful registration
+      const loginRes = await login({ email, password });
+      if (loginRes.error) {
+        setError("Registration successful but login failed. Please try logging in manually.");
+      } else {
+        onClose();
+      }
     }
   };
 
@@ -51,6 +58,29 @@ const SignupPopup = ({ isOpen, onClose, onSignup }) => {
           />
         </div>
         <div className="mb-4">
+          <label className="block mb-1">Username</label>
+          <Input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            data-testid="signup-username"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block mb-1">Role</label>
+          <Select value={role} onValueChange={setRole}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="customer">Customer</SelectItem>
+              <SelectItem value="manager">Manager</SelectItem>
+              <SelectItem value="mechanic">Mechanic</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="mb-4">
           <label className="block mb-1">Confirm Password</label>
           <Input
             type="password"
@@ -60,6 +90,15 @@ const SignupPopup = ({ isOpen, onClose, onSignup }) => {
           />
         </div>
         {error && <p className="text-red-600 mb-4">{error}</p>}
+        <div className="flex justify-between items-center mb-4">
+          <button
+            type="button"
+            onClick={onSwitchToLogin}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Already have an account? Login
+          </button>
+        </div>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} variant="outline" data-testid="signup-cancel">
             Cancel
