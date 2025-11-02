@@ -60,10 +60,7 @@ A full-stack application featuring a modern React frontend and a Spring Boot bac
 - Bookings: `GET /api/bookings`, `POST /api/bookings`
 - Dashboard: `GET /api/dashboard/{role}`
 
-## Development Notes
-- Error handling centralized in frontend API helpers with toasts
-- Protected routes via `ProtectedRoute` and global `AuthContext`
-- Backend uses MongoDB repositories for persistent storage
+
 
 ## Testing
 - Start MongoDB, backend, then frontend
@@ -71,9 +68,10 @@ A full-stack application featuring a modern React frontend and a Spring Boot bac
 - Test: add/edit/delete vehicles; create booking; edit profile; role-based page access
 
 ## Deployment
-- Build frontend: `npm run build` (outputs to `dist/`)
-- Build backend jar: `mvn package`
+- Build frontend: `npm run dev` (outputs to `dist/`)
+- Build backend jar: `cd backend\carcircle; mvn spring-boot:run`
 - Serve frontend statically or integrate with Spring static resources as desired
 
 ## License
-MIT
+KJSSE/SVU: K J Somaiya School of Engineering / Somaiya Vidyavihar University
+
