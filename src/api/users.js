@@ -3,11 +3,16 @@ import { toast } from "../hooks/use-toast";
 export async function listUsers() {
   try {
     const res = await fetch('/api/auth/users');
-    if (!res.ok) throw new Error(await res.text());
-    return await res.json();
+    if (!res.ok) {
+      const msg = await res.text();
+      console.error("Failed to fetch users:", msg);
+      return []; // Return empty array instead of error
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to fetch users") : null;
-    return { error: "Failed to fetch users" };
+    console.error("Failed to fetch users:", e);
+    return []; // Return empty array on error
   }
 }
 

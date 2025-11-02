@@ -11,7 +11,7 @@ const ContactPage = () => {
     {
       icon: Phone,
       title: "Phone Support",
-      details: "+91 98765 43210",
+      details: "+91 94229 40241",
       description: "Available 24/7 for emergencies",
       color: "customer"
     },
@@ -42,7 +42,7 @@ const ContactPage = () => {
     {
       city: "Mumbai",
       address: "KJSSE, SVU, Vidyavihar, Mumbai",
-      phone: "+91 98765 43210",
+      phone: "+91 94229 40241",
       email: "mumbai@carcircle.com"
     }
   ];

@@ -7,36 +7,57 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getMessages, sendMessage, getMessagesByReceiver, getMessagesBySender } from "../../api/messages";
+import { useAuth } from "../../context/AuthContext";
 
 export const MessagePopup = ({ isOpen, onClose, role }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState({
-    to: "",
+    to: "all",
     subject: "",
     content: ""
   });
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadMessages();
     }
-  }, [isOpen]);
+  }, [isOpen, role]);
 
   const loadMessages = async () => {
-    // Load messages from localStorage or API
-    const savedMessages = localStorage.getItem(`messages_${role}`);
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
+    setLoading(true);
+    try {
+      let msgs = [];
+
+      // Get messages where user is receiver
+      const receivedMsgs = await getMessagesByReceiver(user?.id);
+      msgs = msgs.concat(receivedMsgs);
+
+      // Get messages where user is sender
+      const sentMsgs = await getMessagesBySender(user?.id);
+      msgs = msgs.concat(sentMsgs);
+
+      // Remove duplicates based on id
+      const uniqueMsgs = msgs.filter((msg, index, self) =>
+        index === self.findIndex(m => m.id === msg.id)
+      );
+
+      // Sort by timestamp (newest first)
+      uniqueMsgs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      setMessages(uniqueMsgs);
+    } catch (error) {
+      console.error("Failed to load messages:", error);
+      setMessages([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const saveMessages = (msgs) => {
-    localStorage.setItem(`messages_${role}`, JSON.stringify(msgs));
-    setMessages(msgs);
-  };
-
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!newMessage.subject || !newMessage.content) {
       alert("Please fill in subject and message content");
@@ -44,23 +65,30 @@ export const MessagePopup = ({ isOpen, onClose, role }) => {
     }
 
     setSending(true);
-    const message = {
-      id: Date.now(),
-      from: role === "admin" ? "Admin" : "Manager",
-      to: newMessage.to || "All",
-      subject: newMessage.subject,
-      content: newMessage.content,
-      timestamp: new Date().toISOString(),
-      read: false
-    };
+    try {
+      const messageData = {
+        from: user?.username || user?.email || (role === "admin" ? "Admin" : "Manager"),
+        fromRole: role,
+        to: newMessage.to || "all",
+        toRole: newMessage.to === "all" ? "all" : newMessage.to.toLowerCase(),
+        subject: newMessage.subject,
+        content: newMessage.content,
+      };
 
-    setTimeout(() => {
-      const updatedMessages = [message, ...messages];
-      saveMessages(updatedMessages);
-      setNewMessage({ to: "", subject: "", content: "" });
+      const result = await sendMessage(messageData);
+      if (result.error) {
+        alert("Failed to send message: " + result.error);
+      } else {
+        setNewMessage({ to: "all", subject: "", content: "" });
+        await loadMessages(); // Refresh messages
+        alert("Message sent successfully!");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert("Failed to send message. Please try again.");
+    } finally {
       setSending(false);
-      alert("Message sent successfully!");
-    }, 500);
+    }
   };
 
   if (!isOpen) return null;
@@ -105,12 +133,18 @@ export const MessagePopup = ({ isOpen, onClose, role }) => {
                   <form onSubmit={handleSend} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="to">To</Label>
-                      <Input
+                      <select
                         id="to"
-                        placeholder="Enter recipient (e.g., Manager, Admin, All)"
+                        className="w-full px-3 py-2 border rounded-md bg-background"
                         value={newMessage.to}
                         onChange={(e) => setNewMessage({ ...newMessage, to: e.target.value })}
-                      />
+                      >
+                        <option value="all">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="mechanic">Mechanic</option>
+                        <option value="customer">Customer</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="subject">Subject *</Label>
@@ -168,8 +202,8 @@ export const MessagePopup = ({ isOpen, onClose, role }) => {
                             </div>
                             {!msg.read && <Badge variant="secondary" className="text-xs">New</Badge>}
                           </div>
-                          <h4 className="font-medium text-sm mb-1">{msg.subject}</h4>
-                          <p className="text-sm text-muted-foreground mb-2">{msg.content}</p>
+                          <h4 className="font-medium text-sm mb-1">{msg.subject || 'No Subject'}</h4>
+                          <p className="text-sm text-muted-foreground mb-2">{msg.content || msg.message}</p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(msg.timestamp).toLocaleString()}
                           </p>

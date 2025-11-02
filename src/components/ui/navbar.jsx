@@ -2,12 +2,11 @@ import { motion } from "framer-motion";
 import { Button } from "./button";
 import { Car, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import carCircleLogo from "@/assets/carcircle-logo.jpg";
 
 export const Navbar = ({ onLoginClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navigate = useNavigate();
 
   const navItems = [
     { label: "Home", path: "/" },

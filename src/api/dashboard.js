@@ -5,12 +5,15 @@ export async function getDashboard(role) {
     const res = await fetch(`/api/dashboard/${role}`);
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      console.error(`Dashboard API error for ${role}:`, msg);
+      // Don't show toast on error, return empty data instead
+      return { stats: [], alerts: [], urgentJobs: [], recentBookings: [] };
     }
-    return await res.json();
+    const data = await res.json();
+    return data || { stats: [], alerts: [], urgentJobs: [], recentBookings: [] };
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to fetch dashboard") : null;
-    return { error: "Failed to fetch dashboard" };
+    console.error("Failed to fetch dashboard:", e);
+    // Return empty data structure instead of error
+    return { stats: [], alerts: [], urgentJobs: [], recentBookings: [] };
   }
 }

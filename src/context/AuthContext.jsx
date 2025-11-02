@@ -10,13 +10,27 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const storedUser = localStorage.getItem('user');
-      return storedUser ? JSON.parse(storedUser) : null;
+      if (!storedUser) return null;
+      const parsed = JSON.parse(storedUser);
+      // Validate user object has required fields
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+      return null;
     } catch (error) {
       console.error("Error parsing user from localStorage:", error);
+      localStorage.removeItem('user'); // Clean up corrupted data
       return null;
     }
   });
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+  const [token, setToken] = useState(() => {
+    try {
+      return localStorage.getItem('token') || null;
+    } catch (error) {
+      console.error("Error reading token from localStorage:", error);
+      return null;
+    }
+  });
 
   useEffect(() => {
     if (user && user.token) {
@@ -26,8 +40,12 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    if (user) {
-      redirectToDashboard(user.role);
+    if (user && user.role) {
+      try {
+        redirectToDashboard(user.role);
+      } catch (error) {
+        console.error("Error redirecting to dashboard:", error);
+      }
     }
   }, [user]);
 

@@ -29,7 +29,24 @@ const CarsPage = () => {
   ];
 
   const filteredCars = cars.filter(car => {
-    // Backend does not give forSale/forRent/category/filter. Extend this with real data if needed.
+    if (!car) return false;
+    
+    // Filter by category if not "all"
+    if (filters.category !== "all") {
+      const carType = (car.type || car.category || "").toLowerCase();
+      if (carType !== filters.category.toLowerCase()) {
+        return false;
+      }
+    }
+    
+    // Filter by location if not "all"
+    if (filters.location !== "all") {
+      const carLocation = (car.location || "").toLowerCase();
+      if (carLocation !== filters.location.toLowerCase()) {
+        return false;
+      }
+    }
+    
     return true;
   });
 
@@ -113,9 +130,12 @@ const CarsPage = () => {
                   <Card className="overflow-hidden hover:shadow-xl transition-all duration-300">
                     <div className="relative">
                       <img
-                        src={car.image || "/placeholder.svg"}
+                        src={car.image || car.imageUrl || `https://source.unsplash.com/400x300/?car,${car.make || 'car'}`}
                         alt={car.make + " " + car.model}
                         className="w-full h-48 object-cover"
+                        onError={(e) => {
+                          e.target.src = `https://source.unsplash.com/400x300/?car`;
+                        }}
                       />
                       <Badge className="absolute top-3 left-3 bg-green-500">
                         Available

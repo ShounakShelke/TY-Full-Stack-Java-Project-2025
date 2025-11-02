@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Wrench, Calendar, CheckCircle, AlertTriangle, FileText, Clock, LogOut } from "lucide-react";
+import { Wrench, Calendar, CheckCircle, AlertTriangle, FileText, Clock, LogOut, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { JobTrackerPopup } from "@/components/popups/JobTrackerPopup";
 import { AlertPopup } from "@/components/popups/AlertPopup";
 import { AddMaintenanceJobPopup } from "@/components/popups/AddMaintenanceJobPopup";
+import { MessageInbox } from "../../components/MessageInbox";
 import { getDashboard } from "../../api/dashboard";
 import { getMaintenanceJobs, addMaintenanceJob, updateMaintenanceJob, deleteMaintenanceJob } from "../../api/maintenance";
 import { useAuth } from "../../context/AuthContext";
@@ -19,34 +20,72 @@ export const MechanicDashboard = () => {
   const [showJobTrackerPopup, setShowJobTrackerPopup] = useState(false);
   const [showAlertPopup, setShowAlertPopup] = useState(false);
   const [showAddMaintenanceJobPopup, setShowAddMaintenanceJobPopup] = useState(false);
+  const [showMessageInbox, setShowMessageInbox] = useState(false);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
 
   // Track timers for each job by job id
   const [jobTimers, setJobTimers] = useState({});
   const [stats, setStats] = useState([]);
   const [urgentJobs, setUrgentJobs] = useState([]);
+  const [allJobs, setAllJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     fetchDashboard();
+    fetchMaintenanceJobs();
   }, []);
 
   useEffect(() => {
     if (!showAddMaintenanceJobPopup) {
       fetchDashboard();
+      fetchMaintenanceJobs();
     }
   }, [showAddMaintenanceJobPopup]);
+
+  async function fetchMaintenanceJobs() {
+    try {
+      const jobs = await getMaintenanceJobs();
+      setAllJobs(Array.isArray(jobs) ? jobs : []);
+      // Filter urgent jobs
+      const urgent = Array.isArray(jobs) ? jobs.filter(j => j && (j.priority === "Urgent" || j.priority === "High")) : [];
+      setUrgentJobs(urgent);
+    } catch (e) {
+      console.error("Failed to fetch maintenance jobs:", e);
+      setAllJobs([]);
+      setUrgentJobs([]);
+    }
+  }
 
   async function fetchDashboard() {
     setLoading(true);
     setErr("");
     try {
       const data = await getDashboard("mechanic");
-      setStats(data.stats || []);
-      setUrgentJobs(data.urgentJobs || []);
+      // Ensure stats is an array with proper structure
+      const safeStats = Array.isArray(data?.stats) ? data.stats.filter(s => s && s.label) : [];
+      // If no stats, provide defaults
+      if (safeStats.length === 0) {
+        safeStats.push(
+          { label: "Active Jobs", value: "0" },
+          { label: "Completed Today", value: "0" },
+          { label: "Pending", value: "0" },
+          { label: "Urgent", value: "0" }
+        );
+      }
+      setStats(safeStats);
+      setUrgentJobs(Array.isArray(data?.urgentJobs) ? data.urgentJobs.filter(j => j) : []);
     } catch (e) {
+      console.error("Dashboard fetch error:", e);
       setErr((e && e.message) || "Failed to load dashboard");
+      // Set default stats on error
+      setStats([
+        { label: "Active Jobs", value: "0" },
+        { label: "Completed Today", value: "0" },
+        { label: "Pending", value: "0" },
+        { label: "Urgent", value: "0" }
+      ]);
+      setUrgentJobs([]);
     } finally {
       setLoading(false);
     }
@@ -93,6 +132,9 @@ export const MechanicDashboard = () => {
             <Button variant="outline" onClick={() => setShowServiceReportPopup(true)}>
               <FileText className="h-4 w-4 mr-2" /> Upload Report
             </Button>
+            <Button variant="outline" onClick={() => setShowMessageInbox(true)}>
+              <MessageSquare className="h-4 w-4 mr-2" /> Messages
+            </Button>
             <Button className="bg-mechanic hover:bg-mechanic/90" onClick={() => alert("Marked as complete")}> <CheckCircle className="h-4 w-4 mr-2" />Mark Complete</Button>
             <Button variant="outline" onClick={logout}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -104,23 +146,27 @@ export const MechanicDashboard = () => {
       <div className="p-6">
         {/* Stats */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => {
+          {Array.isArray(stats) && stats.length > 0 ? stats.filter(s => s && s.label).map((stat, index) => {
             const IconComponent = statIcons[index] || Wrench;
             const color = statColors[index] || "mechanic";
             return (
-              <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 + 0.2 }} whileHover={{ y: -5 }}>
+              <motion.div key={stat.label || index} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 + 0.2 }} whileHover={{ y: -5 }}>
                 <Card className="hover:shadow-lg transition-all duration-300">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label || "N/A"}</CardTitle>
                     <IconComponent className={`h-4 w-4 text-${color}`} />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <div className="text-2xl font-bold">{stat.value || "0"}</div>
                   </CardContent>
                 </Card>
               </motion.div>
             );
-          })}
+          }).filter(Boolean) : (
+            <div className="col-span-4 text-center py-4 text-muted-foreground">
+              No statistics available
+            </div>
+          )}
         </motion.div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Urgent Jobs */}
@@ -174,7 +220,23 @@ export const MechanicDashboard = () => {
         {showServiceReportPopup && <AlertPopup onClose={() => setShowServiceReportPopup(false)} />}
         {showJobTrackerPopup && <JobTrackerPopup onClose={() => setShowJobTrackerPopup(false)} />}
         {showAlertPopup && <AlertPopup onClose={() => setShowAlertPopup(false)} />}
-        {showAddMaintenanceJobPopup && <AddMaintenanceJobPopup isOpen={showAddMaintenanceJobPopup} onClose={() => setShowAddMaintenanceJobPopup(false)} />}
+        {showAddMaintenanceJobPopup && (
+          <AddMaintenanceJobPopup
+            isOpen={showAddMaintenanceJobPopup}
+            onClose={(refresh) => {
+              setShowAddMaintenanceJobPopup(false);
+              if (refresh) {
+                fetchDashboard();
+                fetchMaintenanceJobs();
+              }
+            }}
+          />
+        )}
+        {showMessageInbox && (
+          <MessageInbox
+            onClose={() => setShowMessageInbox(false)}
+          />
+        )}
       </div>
     </div>
   );

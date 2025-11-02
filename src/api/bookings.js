@@ -5,13 +5,14 @@ export async function getBookings() {
     const res = await fetch('/api/bookings');
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      console.error("Failed to load bookings:", msg);
+      return []; // Return empty array instead of error
     }
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to load bookings") : null;
-    return { error: "Failed to load bookings" };
+    console.error("Failed to load bookings:", e);
+    return []; // Return empty array on error
   }
 }
 

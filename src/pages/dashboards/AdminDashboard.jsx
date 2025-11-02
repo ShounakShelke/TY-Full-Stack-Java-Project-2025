@@ -79,15 +79,17 @@ function UserManagementPanel() {
       <table className="w-full border-collapse text-sm">
         <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th></th></tr></thead>
         <tbody>
-          {users.map(u => (
+          {Array.isArray(users) && users.length > 0 ? users.filter(u => u && u.id).map(u => (
             <tr key={u.id} className="border-b">
-              <td>{u.id}</td><td>{u.username}</td><td>{u.email}</td><td>{u.role}</td>
+              <td>{u.id || "N/A"}</td><td>{u.username || "N/A"}</td><td>{u.email || "N/A"}</td><td>{u.role || "customer"}</td>
               <td>
                 <Button size="sm" className="mr-1" variant="secondary" onClick={() => openEdit(u)}><Edit className="h-4 w-4" /></Button>
                 <Button size="sm" variant="destructive" onClick={() => handleDelete(u.id)}>Delete</Button>
               </td>
             </tr>
-          ))}
+          )) : (
+            <tr><td colSpan="5" className="text-center py-4 text-muted-foreground">No users found</td></tr>
+          )}
         </tbody>
       </table>
       <UserModal open={modalOpen} onClose={() => setModalOpen(false)} user={editUser} onSave={handleSave} />
@@ -114,10 +116,30 @@ export const AdminDashboard = () => {
     setErr("");
     try {
       const data = await getDashboard("admin");
-      setStats(data.stats || []);
-      setAlerts(data.alerts || []);
+      // Ensure stats is an array with proper structure
+      const safeStats = Array.isArray(data?.stats) ? data.stats.filter(s => s && s.label) : [];
+      // If no stats, provide defaults
+      if (safeStats.length === 0) {
+        safeStats.push(
+          { label: "Total Users", value: "0" },
+          { label: "Active Sessions", value: "0" },
+          { label: "System Health", value: "100%" },
+          { label: "Security Alerts", value: "0" }
+        );
+      }
+      setStats(safeStats);
+      setAlerts(Array.isArray(data?.alerts) ? data.alerts.filter(a => a) : []);
     } catch (e) {
+      console.error("Dashboard fetch error:", e);
       setErr((e && e.message) || "Failed to load dashboard");
+      // Set default stats on error
+      setStats([
+        { label: "Total Users", value: "0" },
+        { label: "Active Sessions", value: "0" },
+        { label: "System Health", value: "100%" },
+        { label: "Security Alerts", value: "0" }
+      ]);
+      setAlerts([]);
     } finally {
       setLoading(false);
     }
@@ -172,12 +194,13 @@ export const AdminDashboard = () => {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         >
-          {stats.map((stat, index) => {
+          {Array.isArray(stats) && stats.length > 0 ? stats.map((stat, index) => {
+            if (!stat || !stat.label) return null;
             const IconComponent = statIcons[index] || Users;
             const color = statColors[index] || "admin";
             return (
               <motion.div
-                key={stat.label}
+                key={stat.label || index}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 + 0.2 }}
@@ -186,18 +209,22 @@ export const AdminDashboard = () => {
                 <Card className="hover:shadow-lg transition-all duration-300">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      {stat.label}
+                      {stat.label || "N/A"}
                     </CardTitle>
                     <IconComponent className={`h-4 w-4 text-${color}`} />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                    <p className="text-xs text-muted-foreground">{stat.trend}</p>
+                    <div className="text-2xl font-bold mb-1">{stat.value || "0"}</div>
+                    <p className="text-xs text-muted-foreground">{stat.trend || ""}</p>
                   </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
+              </Card>
+            </motion.div>
+          );
+          }).filter(Boolean) : (
+            <div className="col-span-4 text-center py-4 text-muted-foreground">
+              No statistics available
+            </div>
+          )}
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -218,7 +245,7 @@ export const AdminDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!alerts.length ? <span>No alerts found.</span> : alerts.map((alert, i) => (
+                {!Array.isArray(alerts) || alerts.length === 0 ? <span>No alerts found.</span> : alerts.filter(a => a).map((alert, i) => (
                   <motion.div
                     key={i}
                     whileHover={{ scale: 1.02 }}

@@ -4,10 +4,13 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Car, Calendar, Award, MessageSquare, LogOut, Eye, Edit, Trash2 } from "lucide-react";
+import { Car, Calendar, Award, MessageSquare, LogOut, Eye, Edit, Trash2, Wrench } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getBookings, deleteBooking } from "../../api/bookings";
 import { getCarById } from "../../api/cars";
+import { ReceiptPopup } from "../../components/ReceiptPopup";
+import { ServiceRequestPopup } from "../../components/popups/ServiceRequestPopup";
+import { MessageInbox } from "../../components/MessageInbox";
 
 
 
@@ -18,6 +21,10 @@ export const CustomerDashboard = () => {
   const [cars, setCars] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showReceiptPopup, setShowReceiptPopup] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [showServiceRequestPopup, setShowServiceRequestPopup] = useState(false);
+  const [showMessageInbox, setShowMessageInbox] = useState(false);
 
   useEffect(() => {
     fetchBookings();
@@ -27,32 +34,54 @@ export const CustomerDashboard = () => {
     setLoading(true);
     setError("");
     try {
+      if (!user) {
+        setBookings([]);
+        setCars({});
+        setLoading(false);
+        return;
+      }
+
       const result = await getBookings();
-      if (result.error) {
-        setError(result.error);
-      } else {
-        // Filter bookings for current user
-        const userBookings = Array.isArray(result) 
-          ? result.filter(b => b.userId === user?.id || b.customerEmail === user?.email)
-          : [];
-        setBookings(userBookings);
-        
-        // Fetch car details for each booking
+      // Filter bookings for current user
+      const userBookings = Array.isArray(result) 
+        ? result.filter(b => {
+            if (!b) return false;
+            return b.userId === user?.id || b.customerEmail === user?.email || b.userId?.toString() === user?.id?.toString();
+          })
+        : [];
+      setBookings(userBookings);
+      
+      // Fetch car details for each booking (with error handling)
+      if (userBookings.length > 0) {
         const carPromises = userBookings.map(async (booking) => {
-          if (booking.carId) {
-            const car = await getCarById(booking.carId);
-            if (!car.error) {
-              return { [booking.carId]: car };
+          if (booking?.carId) {
+            try {
+              const car = await getCarById(booking.carId);
+              if (car && !car.error) {
+                return { [booking.carId]: car };
+              }
+            } catch (e) {
+              console.error(`Failed to fetch car ${booking.carId}:`, e);
             }
           }
           return {};
         });
-        const carResults = await Promise.all(carPromises);
-        const carsMap = Object.assign({}, ...carResults);
-        setCars(carsMap);
+        try {
+          const carResults = await Promise.all(carPromises);
+          const carsMap = Object.assign({}, ...carResults.filter(r => Object.keys(r).length > 0));
+          setCars(carsMap);
+        } catch (e) {
+          console.error("Error fetching car details:", e);
+          setCars({});
+        }
+      } else {
+        setCars({});
       }
     } catch (e) {
+      console.error("Error fetching bookings:", e);
       setError("Failed to load bookings");
+      setBookings([]);
+      setCars({});
     } finally {
       setLoading(false);
     }
@@ -60,7 +89,7 @@ export const CustomerDashboard = () => {
 
   async function handleDelete(bookingId) {
     if (!window.confirm("Are you sure you want to cancel this booking?")) return;
-    
+
     try {
       const result = await deleteBooking(bookingId);
       if (!result.error) {
@@ -73,16 +102,29 @@ export const CustomerDashboard = () => {
     }
   }
 
+  const handleViewReceipt = (booking) => {
+    setSelectedBooking(booking);
+    setShowReceiptPopup(true);
+  };
+
+  const handleServiceRequest = () => {
+    setShowServiceRequestPopup(true);
+  };
+
+  const handleMessageInbox = () => {
+    setShowMessageInbox(true);
+  };
+
   const stats = [
     { 
       label: "Active Rentals", 
-      value: bookings.filter(b => b.status === "Confirmed" || b.status === "Active").length.toString(),
+      value: Array.isArray(bookings) ? bookings.filter(b => b && (b.status === "Confirmed" || b.status === "Active")).length.toString() : "0",
       icon: Car, 
       color: "customer" 
     },
     { 
       label: "Total Bookings", 
-      value: bookings.length.toString(), 
+      value: Array.isArray(bookings) ? bookings.length.toString() : "0", 
       icon: Calendar, 
       color: "customer" 
     },
@@ -126,11 +168,12 @@ export const CustomerDashboard = () => {
           >
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {stats.map((stat, index) => {
+              {Array.isArray(stats) && stats.length > 0 ? stats.filter(s => s && s.label && s.icon).map((stat, index) => {
                 const IconComponent = stat.icon;
+                if (!IconComponent) return null;
                 return (
                   <motion.div
-                    key={stat.label}
+                    key={stat.label || index}
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -139,18 +182,22 @@ export const CustomerDashboard = () => {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                            <p className="text-3xl font-montserrat font-bold">{stat.value}</p>
+                            <p className="text-sm font-medium text-muted-foreground">{stat.label || "N/A"}</p>
+                            <p className="text-3xl font-montserrat font-bold">{stat.value || "0"}</p>
                           </div>
-                          <div className={`p-3 rounded-full bg-${stat.color}/10`}>
-                            <IconComponent className={`h-6 w-6 text-${stat.color}`} />
+                          <div className={`p-3 rounded-full bg-${stat.color || "customer"}/10`}>
+                            <IconComponent className={`h-6 w-6 text-${stat.color || "customer"}`} />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   </motion.div>
                 );
-              })}
+              }).filter(Boolean) : (
+                <div className="col-span-3 text-center py-4 text-muted-foreground">
+                  No statistics available
+                </div>
+              )}
             </div>
 
             {/* Bookings */}
@@ -173,8 +220,8 @@ export const CustomerDashboard = () => {
                       </Button>
                     </div>
                   ) : (
-                    bookings.map((booking) => {
-                      const car = cars[booking.carId];
+                    bookings.filter(b => b).map((booking) => {
+                      const car = booking?.carId ? cars[booking.carId] : null;
                       return (
                         <motion.div
                           key={booking.id}
@@ -189,41 +236,47 @@ export const CustomerDashboard = () => {
                               </div>
                               <div className="flex-1">
                                 <h3 className="font-semibold">
-                                  {car ? `${car.make} ${car.model}` : `Car ID: ${booking.carId}`}
+                                  {car && car.make && car.model ? `${car.make} ${car.model}` : booking?.carId ? `Car ID: ${booking.carId}` : "Unknown Car"}
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
-                                  {booking.pickupLocation || "Location not specified"}
+                                  {booking?.pickupLocation || "Location not specified"}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant={booking.status === "Confirmed" ? "default" : "secondary"}>
-                                    {booking.status || "Pending"}
+                                  <Badge variant={booking?.status === "Confirmed" ? "default" : "secondary"}>
+                                    {booking?.status || "Pending"}
                                   </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
-                                  </span>
+                                  {booking?.startDate && booking?.endDate && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
+                                    </span>
+                                  )}
                                   <span className="text-xs font-semibold text-primary">
-                                    ₹{booking.totalAmount || 0}
+                                    ₹{booking?.totalAmount || 0}
                                   </span>
                                 </div>
                               </div>
                             </div>
                             <div className="flex gap-2">
+                              {booking?.id && (
+                                <>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => navigate(`/booking/${booking.id}`)}
+                                onClick={() => handleViewReceipt(booking)}
                               >
                                 <Eye className="h-4 w-4 mr-1" />
-                                View
+                                Receipt
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleDelete(booking.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleDelete(booking.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -248,9 +301,13 @@ export const CustomerDashboard = () => {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={handleServiceRequest}>
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Request Service
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={handleMessageInbox}>
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Support Chat
+                  Messages
                 </Button>
                 <Button variant="outline" className="w-full justify-start" onClick={logout}>
                   <LogOut className="h-4 w-4 mr-2" />
@@ -286,7 +343,33 @@ export const CustomerDashboard = () => {
         </div>
       </div>
 
+      {/* Popups */}
+      {showReceiptPopup && selectedBooking && (
+        <ReceiptPopup
+          booking={selectedBooking}
+          car={selectedBooking?.carId ? cars[selectedBooking.carId] : null}
+          onClose={() => {
+            setShowReceiptPopup(false);
+            setSelectedBooking(null);
+          }}
+        />
+      )}
 
+      {showServiceRequestPopup && (
+        <ServiceRequestPopup
+          onClose={() => setShowServiceRequestPopup(false)}
+          onSubmit={(serviceRequest) => {
+            console.log("Service request submitted:", serviceRequest);
+            setShowServiceRequestPopup(false);
+          }}
+        />
+      )}
+
+      {showMessageInbox && (
+        <MessageInbox
+          onClose={() => setShowMessageInbox(false)}
+        />
+      )}
     </div>
   );
 };

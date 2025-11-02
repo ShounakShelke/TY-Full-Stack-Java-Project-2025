@@ -5,28 +5,33 @@ export async function getAllCars() {
     const res = await fetch("/api/cars");
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      console.error("Failed to get cars:", msg);
+      return []; // Return empty array instead of error
     }
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to get cars") : null;
-    return { error: "Failed to get cars" };
+    console.error("Failed to get cars:", e);
+    return []; // Return empty array on error
   }
 }
 
 export async function getCarById(id) {
   try {
+    if (!id) {
+      return { error: "Car ID is required" };
+    }
     const res = await fetch(`/api/cars/${id}`);
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      console.error("Failed to get car:", msg);
+      return { error: msg || "Car not found" };
     }
-    return await res.json();
+    const data = await res.json();
+    return data || { error: "Car data is empty" };
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to get car") : null;
-    return { error: "Failed to get car" };
+    console.error("Failed to get car:", e);
+    return { error: "Failed to load car details" };
   }
 }
 
@@ -36,13 +41,14 @@ export async function getVehicles() {
     const res = await fetch("/api/vehicles");
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      console.error("Failed to get vehicles:", msg);
+      return []; // Return empty array instead of error
     }
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to get vehicles") : null;
-    return { error: "Failed to get vehicles" };
+    console.error("Failed to get vehicles:", e);
+    return []; // Return empty array on error
   }
 }
 

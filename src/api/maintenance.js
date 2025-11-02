@@ -5,13 +5,14 @@ export async function getMaintenanceJobs() {
     const res = await fetch("/api/maintenance");
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      console.error("Failed to get maintenance jobs:", msg);
+      return []; // Return empty array instead of error
     }
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    toast && toast.error ? toast.error("Failed to get maintenance jobs") : null;
-    return { error: "Failed to get maintenance jobs" };
+    console.error("Failed to get maintenance jobs:", e);
+    return []; // Return empty array on error
   }
 }
 

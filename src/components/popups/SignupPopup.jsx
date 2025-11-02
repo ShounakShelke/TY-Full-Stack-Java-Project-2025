@@ -15,23 +15,46 @@ const SignupPopup = ({ isOpen, onClose, selectedRole, onSwitchToLogin }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
+    
+    if (!email || !username || !password || !confirmPassword) {
+      setError("All fields are required");
+      return;
+    }
+    
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-    const res = await register({ email, username, password, role });
-    if (res.error) {
-      setError(res.error);
-    } else {
-      // Auto-login after successful registration
-      const loginRes = await login({ email, password });
-      if (loginRes.error) {
-        setError("Registration successful but login failed. Please try logging in manually.");
+    
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    try {
+      const res = await register({ email, username, password, role });
+      if (res.error) {
+        setError(res.error);
       } else {
+        // Show success message
+        alert("Registration successful! Please login with your credentials.");
+        // Reset form
+        setEmail("");
+        setUsername("");
+        setPassword("");
+        setConfirmPassword("");
+        // Close signup and switch to login
         onClose();
+        if (onSwitchToLogin) {
+          onSwitchToLogin();
+        }
       }
+    } catch (error) {
+      console.error("Registration error:", error);
+      setError("Registration failed. Please try again.");
     }
   };
 
@@ -39,6 +62,7 @@ const SignupPopup = ({ isOpen, onClose, selectedRole, onSwitchToLogin }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full">
         <h2 className="text-xl font-semibold mb-4">Sign Up</h2>
+        <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label className="block mb-1">Email</label>
           <Input
@@ -100,13 +124,14 @@ const SignupPopup = ({ isOpen, onClose, selectedRole, onSwitchToLogin }) => {
           </button>
         </div>
         <div className="flex justify-end gap-2">
-          <Button onClick={onClose} variant="outline" data-testid="signup-cancel">
+          <Button type="button" onClick={onClose} variant="outline" data-testid="signup-cancel">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} data-testid="signup-submit">
+          <Button type="submit" data-testid="signup-submit">
             Sign Up
           </Button>
         </div>
+        </form>
       </div>
     </div>
   );

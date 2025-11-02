@@ -22,4 +22,9 @@ public class CarController {
     public Optional<Car> getCarById(@PathVariable String id) {
         return carRepository.findById(id);
     }
+
+    @PostMapping
+    public Car addCar(@RequestBody Car car) {
+        return carRepository.save(car);
+    }
 }

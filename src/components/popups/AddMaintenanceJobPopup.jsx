@@ -38,8 +38,10 @@ export const AddMaintenanceJobPopup = ({ isOpen, onClose }) => {
           description: "",
           deadline: "",
         });
-        alert("Maintenance job added successfully!");
-        onClose();
+        // Call onClose with a flag to refresh the dashboard
+        if (onClose) {
+          onClose(true); // Pass true to indicate successful addition
+        }
       } else {
         console.error("Error adding maintenance job:", res.error);
         alert("Failed to add maintenance job: " + res.error);

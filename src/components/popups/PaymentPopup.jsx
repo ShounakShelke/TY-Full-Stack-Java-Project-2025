@@ -63,9 +63,10 @@ export const PaymentPopup = ({ isOpen, onClose, bookingData, onPaymentSuccess })
     if (!validateForm()) return;
 
     setProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setProcessing(false);
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       if (onPaymentSuccess) {
         onPaymentSuccess({
           ...paymentData,
@@ -73,7 +74,12 @@ export const PaymentPopup = ({ isOpen, onClose, bookingData, onPaymentSuccess })
           timestamp: new Date().toISOString()
         });
       }
-    }, 2000);
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      setErrors({ submit: "Payment processing failed. Please try again." });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (!isOpen) return null;

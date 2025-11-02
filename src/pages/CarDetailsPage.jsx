@@ -125,9 +125,29 @@ const CarDetailsPage = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Loading car details...</div>;
-  if (err) return <div className="p-8 text-center text-red-600">{err}</div>;
-  if (!carData) return <div className="p-8 text-center text-gray-500">Car not found.</div>;
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-muted-foreground">Loading car details...</p>
+      </div>
+    </div>
+  );
+  if (err) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-red-600 mb-4">{err}</p>
+        <Button onClick={() => navigate("/cars")}>Go Back to Cars</Button>
+      </div>
+    </div>
+  );
+  if (!carData || carData.error) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-gray-500 mb-4">Car not found.</p>
+        <Button onClick={() => navigate("/cars")}>Go Back to Cars</Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">

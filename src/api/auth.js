@@ -10,13 +10,16 @@ export async function login({ email, password }) {
     });
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      const errorMsg = msg || "Login failed. Please check your credentials.";
+      toast && toast.error ? toast.error(errorMsg) : console.error(errorMsg);
+      return { error: errorMsg };
     }
-    return await res.json();
+    const data = await res.json();
+    return data;
   } catch (err) {
-    toast && toast.error ? toast.error("Login failed") : null;
-    return { error: "Login failed" };
+    const errorMsg = err?.message || "Network error. Please check your connection.";
+    toast && toast.error ? toast.error(errorMsg) : console.error(errorMsg);
+    return { error: errorMsg };
   }
 }
 
@@ -29,12 +32,15 @@ export async function register({ email, username, password, role }) {
     });
     if (!res.ok) {
       const msg = await res.text();
-      toast && toast.error ? toast.error(msg) : null;
-      return { error: msg };
+      const errorMsg = msg || "Registration failed. Please try again.";
+      toast && toast.error ? toast.error(errorMsg) : console.error(errorMsg);
+      return { error: errorMsg };
     }
-    return await res.json();
+    const data = await res.json();
+    return data;
   } catch (err) {
-    toast && toast.error ? toast.error("Registration failed") : null;
-    return { error: "Registration failed" };
+    const errorMsg = err?.message || "Network error. Please check your connection.";
+    toast && toast.error ? toast.error(errorMsg) : console.error(errorMsg);
+    return { error: errorMsg };
   }
 }

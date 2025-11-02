@@ -215,3 +215,4 @@ export const SellReceiptPopup = ({ isOpen, onClose, listingData, ownerData, toke
   );
 };
 
+
